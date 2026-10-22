@@ -23,4 +23,5 @@ $JsonPayload = @{ content = "Här är din fil: $($gofile.data.downloadPage)" } |
 $WebhookUrl = "https://discord.com/api/webhooks/1562163056358989930/a-ZW7q-A3ekHBXZN2GUoAgnVy5B9ZQ2tQQqGDlINUDrGv_DevTKve5cR6qvGMg-C2g5C"
 
 
-Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $JsonPayload -ContentType "application/json"
+Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $JsonPayload -ContentType "application/json; charset=utf-8"
+
